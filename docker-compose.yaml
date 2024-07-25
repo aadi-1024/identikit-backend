@@ -1,0 +1,12 @@
+services:
+  postgres:
+    image: postgres:alpine
+    container_name: database
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: identikit
+    volumes:
+      - ./.data:/var/lib/postgresql/data/
