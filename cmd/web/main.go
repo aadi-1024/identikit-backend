@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 
 	"github.com/aadi-1024/identikit-backend/internal/database"
 	"github.com/go-playground/validator/v10"
@@ -14,7 +15,7 @@ func main() {
 	app = App{}
 	e := echo.New()
 
-	db, err := database.InitDb("postgres://postgres:password@localhost:5432/identikit")
+	db, err := database.InitDb("postgres://postgres:password@localhost:5432/identikit", 3*time.Second)
 	if err != nil {
 		log.Fatalln(err.Error())
 	}

@@ -16,4 +16,8 @@ func SetupRoutes(e *echo.Echo) {
 	e.POST("/register", handlers.RegisterUserHandler(app.Db, app.Validate))
 	e.POST("/login/dashboard", handlers.Login(app.Db, app.Validate, app.JwtSecret, "dashboard"))
 	e.POST("/login/editor", handlers.Login(app.Db, app.Validate, app.JwtSecret, "editor"))
+
+	snippets := e.Group("/snippets")
+	snippets.GET("", handlers.GetAllSnippets(app.Db))
+	snippets.POST("", handlers.CreateSnippet(app.Db, app.Validate))
 }
