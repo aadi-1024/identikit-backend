@@ -1,8 +1,8 @@
 package models
 
 type User struct {
-	Id       int    `json:"id"`
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,lt=72,gt=8"`
-	Role     string `json:"role" validate:"required,oneof=user admin"`
+	Id       int    `json:"id" gorm:"primaryKey"`
+	Email    string `json:"email" validate:"required,email" gorm:"unique"`
+	Password string `json:"password" validate:"required,lte=72,gte=8"`
+	Role     string `json:"role" validate:"required,oneof=user admin" gorm:"default:user"`
 }
