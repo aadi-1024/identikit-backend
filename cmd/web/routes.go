@@ -20,4 +20,6 @@ func SetupRoutes(e *echo.Echo) {
 	snippets := e.Group("/snippets")
 	snippets.GET("", handlers.GetAllSnippets(app.Db))
 	snippets.POST("", handlers.CreateSnippet(app.Db, app.Validate))
+	snippets.POST("/docs/:id", handlers.GenerateDocumentation(app.Db))
+	snippets.POST("/security/:id", nil)
 }

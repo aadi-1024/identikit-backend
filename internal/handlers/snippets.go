@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/aadi-1024/identikit-backend/internal/database"
 	"github.com/aadi-1024/identikit-backend/internal/models"
@@ -60,5 +61,41 @@ func CreateSnippet(d *database.Database, v *validator.Validate) echo.HandlerFunc
 		res.Message = "successful"
 
 		return c.JSON(http.StatusCreated, res)
+	}
+}
+
+func GenerateDocumentation(d *database.Database) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var forceGeneration bool
+		res := models.JsonResponse{}
+		if c.QueryParam("force") == "true" {
+			forceGeneration = true
+		} else {
+			forceGeneration = false
+		}
+
+		id := c.Param("id")
+		var documentation string
+
+		if forceGeneration {
+			documentation = "sample documentation at " + time.Now().Format(time.DateTime)
+			d.UpdateSnippet(c.Request().Context(), models.Snippet{Id: id, Documentation: documentation})
+		} else {
+			snip, err := d.GetSnippetById(c.Request().Context(), id)
+			if err != nil {
+				res.Message = err.Error()
+				return c.JSON(http.StatusBadRequest, res)
+			}
+
+			if snip.Documentation == "" {
+				documentation = "sample documentation at " + time.Now().Format(time.DateTime)
+				d.UpdateSnippet(c.Request().Context(), models.Snippet{Id: id, Documentation: documentation})
+			} else {
+				documentation = snip.Documentation
+			}
+		}
+		res.Message = "successful"
+		res.Data = documentation
+		return c.JSON(http.StatusOK, res)
 	}
 }
