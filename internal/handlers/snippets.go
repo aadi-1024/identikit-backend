@@ -99,3 +99,40 @@ func GenerateDocumentation(d *database.Database) echo.HandlerFunc {
 		return c.JSON(http.StatusOK, res)
 	}
 }
+
+
+func GenerateSecurityAnalysis(d *database.Database) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var forceGeneration bool
+		res := models.JsonResponse{}
+		if c.QueryParam("force") == "true" {
+			forceGeneration = true
+		} else {
+			forceGeneration = false
+		}
+
+		id := c.Param("id")
+		var profile string
+
+		if forceGeneration {
+			profile = "sample security profile at " + time.Now().Format(time.DateTime)
+			d.UpdateSnippet(c.Request().Context(), models.Snippet{Id: id, Security: profile})
+		} else {
+			snip, err := d.GetSnippetById(c.Request().Context(), id)
+			if err != nil {
+				res.Message = err.Error()
+				return c.JSON(http.StatusBadRequest, res)
+			}
+
+			if snip.Security == "" {
+				profile = "sample security profile at " + time.Now().Format(time.DateTime)
+				d.UpdateSnippet(c.Request().Context(), models.Snippet{Id: id, Security: profile})
+			} else {
+				profile = snip.Security
+			}
+		}
+		res.Message = "successful"
+		res.Data = profile
+		return c.JSON(http.StatusOK, res)
+	}
+}
