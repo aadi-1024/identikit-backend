@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
-	"time"
 
 	"github.com/aadi-1024/identikit-backend/internal/database"
 	"github.com/aadi-1024/identikit-backend/internal/models"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/generative-ai-go/genai"
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
 )
@@ -64,7 +66,7 @@ func CreateSnippet(d *database.Database, v *validator.Validate) echo.HandlerFunc
 	}
 }
 
-func GenerateDocumentation(d *database.Database) echo.HandlerFunc {
+func GenerateDocumentation(d *database.Database, ai *genai.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var forceGeneration bool
 		res := models.JsonResponse{}
@@ -76,32 +78,50 @@ func GenerateDocumentation(d *database.Database) echo.HandlerFunc {
 
 		id := c.Param("id")
 		var documentation string
+		code := ""
 
-		if forceGeneration {
-			documentation = "sample documentation at " + time.Now().Format(time.DateTime)
-			d.UpdateSnippet(c.Request().Context(), models.Snippet{Id: id, Documentation: documentation})
-		} else {
-			snip, err := d.GetSnippetById(c.Request().Context(), id)
+		snippet, err := d.GetSnippetById(c.Request().Context(), id)
+		if err != nil {
+			res.Message = err.Error()
+			return c.JSON(http.StatusBadRequest, res)
+		}
+
+		for _, v := range snippet.Body {
+			str, ok := v.(string)
+			if !ok {
+				continue
+			}
+			code += str + "\n"
+		}
+
+		if forceGeneration || snippet.Documentation == "" {
+			model := ai.GenerativeModel("gemini-1.5-flash")
+			resp, err := model.GenerateContent(c.Request().Context(), genai.Text("Generate documentation for the following code snippet: "), genai.Text(code))
 			if err != nil {
 				res.Message = err.Error()
-				return c.JSON(http.StatusBadRequest, res)
+				return c.JSON(http.StatusInternalServerError, res)
 			}
 
-			if snip.Documentation == "" {
-				documentation = "sample documentation at " + time.Now().Format(time.DateTime)
-				d.UpdateSnippet(c.Request().Context(), models.Snippet{Id: id, Documentation: documentation})
-			} else {
-				documentation = snip.Documentation
+			for _, cand := range resp.Candidates {
+				if cand.Content != nil {
+					for _, part := range cand.Content.Parts {
+						documentation += fmt.Sprint(part)
+					}
+				}
 			}
+
+			d.UpdateSnippet(c.Request().Context(), models.Snippet{Id: snippet.Id, Documentation: documentation})
+		} else {
+			documentation = snippet.Documentation
 		}
+
 		res.Message = "successful"
 		res.Data = documentation
 		return c.JSON(http.StatusOK, res)
 	}
 }
 
-
-func GenerateSecurityAnalysis(d *database.Database) echo.HandlerFunc {
+func GenerateSecurityAnalysis(d *database.Database, ai *genai.Client) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		var forceGeneration bool
 		res := models.JsonResponse{}
@@ -112,27 +132,46 @@ func GenerateSecurityAnalysis(d *database.Database) echo.HandlerFunc {
 		}
 
 		id := c.Param("id")
-		var profile string
+		var documentation string
+		code := ""
 
-		if forceGeneration {
-			profile = "sample security profile at " + time.Now().Format(time.DateTime)
-			d.UpdateSnippet(c.Request().Context(), models.Snippet{Id: id, Security: profile})
-		} else {
-			snip, err := d.GetSnippetById(c.Request().Context(), id)
+		snippet, err := d.GetSnippetById(c.Request().Context(), id)
+		if err != nil {
+			res.Message = err.Error()
+			return c.JSON(http.StatusBadRequest, res)
+		}
+
+		for _, v := range snippet.Body {
+			str, ok := v.(string)
+			if !ok {
+				continue
+			}
+			code += str + "\n"
+		}
+
+		if forceGeneration || snippet.Security == "" {
+			model := ai.GenerativeModel("gemini-1.5-flash")
+			resp, err := model.GenerateContent(c.Request().Context(), genai.Text("Generate security report for the following code snippet: "), genai.Text(code))
 			if err != nil {
 				res.Message = err.Error()
-				return c.JSON(http.StatusBadRequest, res)
+				return c.JSON(http.StatusInternalServerError, res)
 			}
 
-			if snip.Security == "" {
-				profile = "sample security profile at " + time.Now().Format(time.DateTime)
-				d.UpdateSnippet(c.Request().Context(), models.Snippet{Id: id, Security: profile})
-			} else {
-				profile = snip.Security
+			for _, cand := range resp.Candidates {
+				if cand.Content != nil {
+					for _, part := range cand.Content.Parts {
+						documentation += fmt.Sprint(part)
+					}
+				}
 			}
+
+			d.UpdateSnippet(c.Request().Context(), models.Snippet{Id: snippet.Id, Security: documentation})
+		} else {
+			documentation = snippet.Security
 		}
+
 		res.Message = "successful"
-		res.Data = profile
+		res.Data = documentation
 		return c.JSON(http.StatusOK, res)
 	}
 }
